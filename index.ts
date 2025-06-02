@@ -1,5 +1,15 @@
 #!/usr/bin/env node
 
+/**
+ * Next.js File Watcher with Auto-Detection
+ *
+ * This tool automatically detects whether your Next.js project uses:
+ * - app/ directory structure (standard Next.js 13+ app router)
+ * - src/app/ directory structure (app router with src folder)
+ *
+ * Uses Bun APIs for efficient file system operations and detection.
+ */
+
 import chokidar from "chokidar";
 
 /**
@@ -21,16 +31,106 @@ function toPascalCase(str: string): string {
 }
 
 /**
+ * Detects the Next.js project structure and returns the app directory path.
+ * Uses Bun's built-in file system capabilities.
+ * @returns The path to the app directory ('app' or 'src/app').
+ */
+async function detectAppDirectory(): Promise<string> {
+  const appPath = "app";
+  const srcAppPath = "src/app";
+
+  // Check if app/ directory exists using Bun.file with a directory indicator
+  try {
+    const appFile = Bun.file(`${appPath}/package.json`); // Try to access something in the directory
+    const appStat = await appFile.exists();
+    if (appStat) {
+      return appPath;
+    }
+  } catch {
+    // Continue to next check
+  }
+
+  // Alternative: Check for any common Next.js files in app directory
+  try {
+    const appLayoutFile = Bun.file(`${appPath}/layout.tsx`);
+    const appPageFile = Bun.file(`${appPath}/page.tsx`);
+    const appGlobalFile = Bun.file(`${appPath}/global.css`);
+
+    if (
+      (await appLayoutFile.exists()) ||
+      (await appPageFile.exists()) ||
+      (await appGlobalFile.exists())
+    ) {
+      return appPath;
+    }
+  } catch {
+    // Continue to next check
+  }
+
+  // Check if src/app/ directory exists
+  try {
+    const srcAppLayoutFile = Bun.file(`${srcAppPath}/layout.tsx`);
+    const srcAppPageFile = Bun.file(`${srcAppPath}/page.tsx`);
+    const srcAppGlobalFile = Bun.file(`${srcAppPath}/global.css`);
+
+    if (
+      (await srcAppLayoutFile.exists()) ||
+      (await srcAppPageFile.exists()) ||
+      (await srcAppGlobalFile.exists())
+    ) {
+      return srcAppPath;
+    }
+  } catch {
+    // Continue to default
+  }
+
+  // Fallback: Use directory existence check with a simple approach
+  try {
+    // Try to read the directory using Bun's glob functionality
+    const appGlob = new Bun.Glob(`${appPath}/*`);
+    const appFiles = await Array.fromAsync(appGlob.scan("."));
+    if (appFiles.length > 0) {
+      return appPath;
+    }
+  } catch {
+    // Continue to next check
+  }
+
+  try {
+    const srcAppGlob = new Bun.Glob(`${srcAppPath}/*`);
+    const srcAppFiles = await Array.fromAsync(srcAppGlob.scan("."));
+    if (srcAppFiles.length > 0) {
+      return srcAppPath;
+    }
+  } catch {
+    // Continue to default
+  }
+
+  // Default to app/ if neither exists (user might create it later)
+  console.log(
+    "No existing app directory found, defaulting to 'app'. Will watch for creation."
+  );
+  return appPath;
+}
+
+/**
  * Processes the file path to extract segments, dynamic keys, and path string.
  * @param filePath - The full file path.
+ * @param appDir - The app directory path ('app' or 'src/app').
  * @returns An object containing segments, dynamic keys, and path string.
  */
-function processPath(filePath: string): {
+function processPath(
+  filePath: string,
+  appDir: string
+): {
   segments: string[];
   dynamicKeys: string[];
   path: string;
 } {
-  const relativePath = filePath.replace(/^app\//, "");
+  const relativePath = filePath.replace(
+    new RegExp(`^${appDir.replace("/", "/")}\\/`),
+    ""
+  );
   const dirPath = relativePath.replace(/\/(page|layout)\.tsx|\/route\.ts$/, "");
   const segments = dirPath.split("/").filter((segment) => segment !== "");
   const dynamicKeys = segments
@@ -139,8 +239,11 @@ function generateRouteCode(dynamicKeys: string[], path: string): string {
   return functions.join("\n\n");
 }
 
-// Set up the watcher for the 'app' directory
-const watcher = chokidar.watch("app", {
+// Set up the watcher dynamically based on detected app directory
+const appDir = await detectAppDirectory();
+console.log(`Detected Next.js app directory: ${appDir}`);
+
+const watcher = chokidar.watch(appDir, {
   persistent: true,
   ignoreInitial: true,
   followSymlinks: false,
@@ -157,7 +260,7 @@ watcher.on("add", (filePath) => {
     : null;
   if (!fileType) return;
 
-  const { segments, dynamicKeys, path } = processPath(filePath);
+  const { segments, dynamicKeys, path } = processPath(filePath, appDir);
   let code: string;
 
   switch (fileType) {
@@ -183,5 +286,5 @@ watcher.on("add", (filePath) => {
 });
 
 console.log(
-  "Watching for new page.tsx, layout.tsx, and route.ts files in app directory..."
+  `Watching for new page.tsx, layout.tsx, and route.ts files in ${appDir} directory...`
 );
