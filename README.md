@@ -13,6 +13,28 @@ A smart file watcher for Next.js projects that automatically detects your projec
 
 ## Installation
 
+### Option 1: Install as a global package
+
+```bash
+# Using Bun
+bun add -g next-file-watcher
+
+# Using npm
+npm install -g next-file-watcher
+```
+
+### Option 2: Run directly without installation
+
+```bash
+# Using Bun (recommended)
+bunx next-file-watcher
+
+# Using npm
+npx next-file-watcher
+```
+
+### Option 3: Clone and run locally
+
 To install dependencies:
 
 ```bash
@@ -21,7 +43,19 @@ bun install
 
 ## Usage
 
-To run:
+### Global installation or direct execution
+
+```bash
+# If installed globally
+next-file-watcher
+
+# Or run directly without installation
+bunx next-file-watcher
+# OR
+npx next-file-watcher
+```
+
+### Local development
 
 ```bash
 bun run index.ts
