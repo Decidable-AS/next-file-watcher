@@ -1,12 +1,16 @@
 {
   "name": "next-file-watcher",
-  "module": "index.ts",
+  "private": false,
   "type": "module",
-  "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
+  "scripts": {
+    "build": "bun build index.ts --outdir dist --target=node",
+    "dev": "bun --hot index.ts"
   },
-  "peerDependencies": {
+  "bin": {
+    "next-file-watcher": "dist/index.js"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
     "typescript": "^5"
   },
   "dependencies": {
